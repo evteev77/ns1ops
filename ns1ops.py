@@ -1,6 +1,6 @@
 """
 under construction
-Author: Sergey Evteev <the.ostap@amazon.com>
+Author: Sergey Evteev
 """
 
 import os
