@@ -38,22 +38,6 @@ class NS1APIClientError(Exception):
     """ API client level exception """
 
 
-class IP:
-    """
-    Checker/validator class
-    """
-
-    def __init__(self, ip):
-        # TODO: implement validity checks and normalization
-        self.ip = ip
-
-    def __str__(self):
-        return str(self.ip)
-
-    def __repr__(self):
-        return repr(self.ip)
-
-
 class NS1APIClient:
     """
     NS1 API client class, implements CRUD approach to NS1 API
@@ -125,7 +109,6 @@ class NS1APIClient:
         Helper method, validates payload
         :param dict payload:
         :return: dict
-        :raises: NS1APIClientError
         """
 
         # TODO: implement payload validation
@@ -133,7 +116,7 @@ class NS1APIClient:
 
     def put(self, url, data):
         """
-        HTTP PUT method implementation
+        HTTP PUT interface
         :param str url:
         :param dict data:
         :return: dict
@@ -145,7 +128,7 @@ class NS1APIClient:
 
     def get(self, url):
         """
-        HTTP GET method implementation
+        HTTP GET interface
         :param str url:
         :return: dict
         """
@@ -156,7 +139,7 @@ class NS1APIClient:
 
     def post(self, url, data):
         """
-        HTTP POST method implementation
+        HTTP POST interface
         :param str url:
         :param dict data:
         :return: dict
@@ -168,7 +151,7 @@ class NS1APIClient:
 
     def delete(self, url):
         """
-        HTTP DELETE method implementation
+        HTTP DELETE interface
         :param str url:
         :return: dict
         """
@@ -184,6 +167,12 @@ class DNSRecord:
 
     @staticmethod
     def _secure_ip(address):
+        """
+        Helper method, validates IP address
+        :param dict payload:
+        :return: dict
+        """
+
         # TODO: implement address validation
         return address
 
