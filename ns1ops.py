@@ -72,8 +72,6 @@ class NS1APIClient:
         :param urllib.request.Request request:
         :return: dict
         """
-
-        logger.debug('{method}: {url}'.format(method=request.method, url=request.full_url))
         # We expect an exception here to be raised in case of bad request or connection
         response = urlopen(request)
 
@@ -194,7 +192,6 @@ class DNSRecord:
             raise NS1RecordError('Parameter "ips" is missed')
 
         url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
-
         try:
             self.api_client.get(url)
         except HTTPError as e:
@@ -210,7 +207,6 @@ class DNSRecord:
             ips = [ips]
 
         ips = [self._secure_ip(address) for address in ips]
-
         payload = {
             'zone': zone,
             'domain': '.'.join([name, zone]),
@@ -230,7 +226,6 @@ class DNSRecord:
         """
 
         url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
-
         try:
             return self.api_client.get(url)
         except HTTPError as e:
@@ -249,7 +244,6 @@ class DNSRecord:
         """
 
         url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
-
         try:
             self.api_client.get(url)
         except HTTPError as e:
