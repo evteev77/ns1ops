@@ -17,7 +17,6 @@ NS1_API_KEY = os.environ.get('NS1_API_KEY')
 ZONE = 'example.com'
 
 A = 'A'
-SUPPORTED_RECORD_TYPES = [A]
 
 class NS1ZoneError(Exception):
     """ Zone level exception """
@@ -81,28 +80,6 @@ class NS1APIClient:
 
         return payload
 
-    @staticmethod
-    def _get_url(zone=None, name=None, record_type=None):
-        """
-        Helper method, composes valid URL from passed parameters
-        :param str zone: 'example.com'
-        :param str name: 'www'
-        :param str record_type: 'A'
-        :return: str
-        :raises: NS1APIClientError
-        """
-
-        if record_type not in SUPPORTED_RECORD_TYPES:
-            raise NS1APIClientError('Unsupported record type: {rec_type}'.format(rec_type=record_type))
-
-        endpoint = 'https://api.nsone.net/v1/zones'
-        if not all([zone, name, record_type]):
-            raise NS1APIClientError('Either "zone", "name" or "record_type" parameter is missed')
-
-        fqdn = '.'.join([name, zone])
-        url = '/'.join([endpoint, zone, fqdn, record_type])
-
-        return url
 
     @staticmethod
     def _secure_payload(payload):
@@ -165,6 +142,10 @@ class NS1APIClient:
 class DNSRecord:
     def __init__(self, api_client=NS1APIClient(api_key=NS1_API_KEY)):
         self.api_client = api_client
+        self.supported_record_types = ['A']
+        self.last_used_zone = None
+        self.last_used_name = None
+        self.endpoint = 'https://api.nsone.net/v1/zones'
 
     @staticmethod
     def _secure_ip(address):
@@ -177,7 +158,29 @@ class DNSRecord:
         # TODO: implement address validation
         return address
 
-    def _create_record(self, record_type, zone=None, name=None, ips=None):
+    def _get_url(self, zone=None, name=None, record_type=None):
+        """
+        Helper method, composes valid URL from passed parameters
+        :param str zone: 'example.com'
+        :param str name: 'www'
+        :param str record_type: 'A'
+        :return: str
+        :raises: NS1APIClientError
+        """
+
+        if record_type not in self.supported_record_types:
+            raise NS1APIClientError('Unsupported record type: {rec_type}'.format(rec_type=record_type))
+
+
+        if not all([zone, name, record_type]):
+            raise NS1APIClientError('Either "zone", "name" or "record_type" parameter is missed')
+
+        fqdn = '.'.join([name, zone])
+        url = '/'.join([self.endpoint, zone, fqdn, record_type])
+
+        return url
+
+    def _create(self, record_type, zone=None, name=None, ips=None):
         """
         Creates a record in specified zone
         :param str record_type:
@@ -191,7 +194,7 @@ class DNSRecord:
         if not ips:
             raise NS1RecordError('Parameter "ips" is missed')
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             self.api_client.get(url)
         except HTTPError as e:
@@ -216,7 +219,7 @@ class DNSRecord:
 
         return self.api_client.put(url, payload)
 
-    def _read_record(self, record_type, zone=None, name=None):
+    def _read(self, record_type, zone=None, name=None):
         """
         Reads a record details
         :param str record_type:
@@ -225,7 +228,7 @@ class DNSRecord:
         :return: dict
         """
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             return self.api_client.get(url)
         except HTTPError as e:
@@ -234,16 +237,17 @@ class DNSRecord:
 
             raise
 
-    def _update_record(self, record_type, zone=None, name=None, payload=None):
+    def _update(self, record_type, zone=None, name=None, payload=None):
         """
         Updates a record details
         :param str record_type:
         :param str zone:
         :param str name:
+        :param dict payload:
         :return: dict
         """
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             self.api_client.get(url)
         except HTTPError as e:
@@ -257,7 +261,7 @@ class DNSRecord:
 
         return self.api_client.post(url, payload)
 
-    def _delete_record(self, record_type, zone=None, name=None):
+    def _delete(self, record_type, zone=None, name=None):
         """
         Deletes a record
         :param str record_type:
@@ -265,7 +269,7 @@ class DNSRecord:
         :return: dict # empty
         """
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
 
         try:
             self.api_client.delete(url)
@@ -275,28 +279,59 @@ class DNSRecord:
 
             raise
 
-    def add_a_record(self, zone, name, ips):
+
+class ARecord(DNSRecord):
+    def add(self, zone=None, name=None, ips=None):
         """
         add A
         """
-        return self._create_record(A, zone=zone, name=name, ips=ips)
 
-    def get_a_record(self, zone, name):
+        result = self._create(A, zone=zone, name=name, ips=ips)
+        self.last_used_zone = zone
+        self.last_used_name = name
+
+        return result
+
+    def get(self, zone=None, name=None):
         """
         get A
         """
-        return self._read_record(A, zone=zone, name=name)
 
-    def update_a_record(self, zone, name, payload):
+        self.last_used_zone = zone or self.last_used_zone
+        self.last_used_name = name or self.last_used_name
+        return self._read(A, zone=self.last_used_zone, name=self.last_used_name)
+
+    def update(self, zone=None, name=None, payload=None):
         """
         upd A
         """
-        return self._update_record(A, zone=zone, name=name, payload=payload)
+        return self._update(A, zone=zone, name=name, payload=payload)
 
-    def delete_a_record(self, zone, name):
+    def delete(self, zone=None, name=None):
         """
         del A
         """
-        return self._delete_record(A, zone=zone, name=name)
+        return self._delete(A, zone=zone, name=name)
 
 
+class Monitor:
+    def __init__(self, api_client=NS1APIClient(api_key=NS1_API_KEY)):
+        self.api_client = api_client
+        self.endpoint = 'https://api.nsone.net/v1/monitoring/jobs'
+
+    def _get_url(self, job_id=None):
+        """
+        Helper method, composes valid URL from passed parameters
+        :param str job_id:
+        :return: str
+        :raises: NS1APIClientError
+        """
+
+
+        url = self.endpoint
+        if job_id:
+            url = '/'.join([self.endpoint, job_id])
+
+        return url
+
+    
