@@ -35,13 +35,17 @@ class NS1NotificationListError(Exception):
     """ Notification list level exception """
 
 
+class NS1NotificationChannelError(Exception):
+    """ Notification channel level exception """
+
+
 class NS1APIClientError(Exception):
     """ API client level exception """
 
 
 class NS1APIClient:
     """
-    NS1 API client class, implements CRUD approach to NS1 API
+    NS1 API client class
     """
 
     def __init__(self, api_key):
@@ -68,7 +72,7 @@ class NS1APIClient:
     @staticmethod
     def _get_response(request):
         """
-        Helper method, processes request and returns parsed JSON payload
+        Processes request and returns parsed JSON payload
         :param urllib.request.Request request:
         :return: dict
         """
@@ -80,29 +84,6 @@ class NS1APIClient:
         payload = json.loads(content)
 
         return payload
-
-    @staticmethod
-    def _get_url(zone=None, name=None, record_type=None):
-        """
-        Helper method, composes valid URL from passed parameters
-        :param str zone: 'example.com'
-        :param str name: 'www'
-        :param str record_type: 'A'
-        :return: str
-        :raises: NS1APIClientError
-        """
-
-        if record_type not in SUPPORTED_RECORD_TYPES:
-            raise NS1APIClientError('Unsupported record type: {rec_type}'.format(rec_type=record_type))
-
-        endpoint = 'https://api.nsone.net/v1/zones'
-        if not all([zone, name, record_type]):
-            raise NS1APIClientError('Either "zone", "name" or "record_type" parameter is missed')
-
-        fqdn = '.'.join([name, zone])
-        url = '/'.join([endpoint, zone, fqdn, record_type])
-
-        return url
 
     @staticmethod
     def _secure_payload(payload):
@@ -167,6 +148,31 @@ class DNSRecord:
         self.api_client = api_client
 
     @staticmethod
+    def _get_url(zone=None, name=None, record_type=None):
+        """
+        Helper method, composes valid URL from passed parameters
+        :param str zone: 'example.com'
+        :param str name: 'www'
+        :param str record_type: 'A'
+        :return: str
+        :raises: NS1APIClientError
+        """
+
+        zone = self._secure_zone(zone)
+
+        if record_type not in SUPPORTED_RECORD_TYPES:
+            raise NS1APIClientError('Unsupported record type: {rec_type}'.format(rec_type=record_type))
+
+        endpoint = 'https://api.nsone.net/v1/zones'
+        if not all([zone, name, record_type]):
+            raise NS1APIClientError('Either "zone", "name" or "record_type" parameter is missed')
+
+        fqdn = '.'.join([name, zone])
+        url = '/'.join([endpoint, zone, fqdn, record_type])
+
+        return url
+
+    @staticmethod
     def _secure_ip(address):
         """
         Helper method, validates IP address
@@ -176,6 +182,17 @@ class DNSRecord:
 
         # TODO: implement address validation
         return address
+
+    @staticmethod
+    def _secure_zone(zone):
+        """
+        Helper method, validates IP address
+        :param dict payload:
+        :return: dict
+        """
+
+        # TODO: implement zone validation
+        return zone
 
     def _create_record(self, record_type, zone=None, name=None, ips=None):
         """
@@ -191,7 +208,7 @@ class DNSRecord:
         if not ips:
             raise NS1RecordError('Parameter "ips" is missed')
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             self.api_client.get(url)
         except HTTPError as e:
@@ -225,7 +242,7 @@ class DNSRecord:
         :return: dict
         """
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             return self.api_client.get(url)
         except HTTPError as e:
@@ -243,7 +260,7 @@ class DNSRecord:
         :return: dict
         """
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             self.api_client.get(url)
         except HTTPError as e:
@@ -265,8 +282,7 @@ class DNSRecord:
         :return: dict # empty
         """
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
-
+        url = self._get_url(zone=zone, name=name, record_type=record_type)
         try:
             self.api_client.delete(url)
         except HTTPError as e:
@@ -275,6 +291,8 @@ class DNSRecord:
 
             raise
 
+
+class ARecord(DNSRecord):
     def add_a_record(self, zone, name, ips):
         """
         add A
@@ -299,4 +317,99 @@ class DNSRecord:
         """
         return self._delete_record(A, zone=zone, name=name)
 
+
+class NotificationChannel:
+    def __init__(self, channel_type, channel_id, channel_value):
+        self.type = channel_type
+        self.id = channel_id
+        self.value = self._secure_id(channel_value)
+
+    @staticmethod
+    def _secure_id(id):
+        raise NS1NotificationChannelError('You must implement the method in subclass')
+
+
+class EMailNotification(NotificationChannel):
+    @staticmethod
+    def _secure_id(email):
+        """
+        Helper method, validates IP address
+        :param dict payload:
+        :return: dict
+        """
+
+        # TODO: implement email address validation
+        return email
+
+
+class NotificationList:
+    def __init__(self, api_client=NS1APIClient(api_key=NS1_API_KEY)):
+        self.api_client = api_client
+
+    @staticmethod
+    def _get_url(list_id=None):
+
+        endpoint = 'https://api.nsone.net/v1/lists'
+        url = endpoint
+        if list_id:
+            url = '/'.join([endpoint, list_id])
+
+        return url
+
+    def _get_lists(self):
+        url = self._get_url()
+
+        return self.api_client.get(url)
+
+    def _get_id_by_name(self, name):
+        notification_lists = self._get_lists()
+
+        candidates = [nl.get('id') for nl in notification_lists if nl.get('name') == name]
+
+        if len(candidates) > 1:
+            raise NS1NotificationListError('More than one notification lists have name: {}'.format(name))
+
+        if not candidates:
+            return
+
+        return candidates[0]
+
+    def _create_list(self, name, channels):
+        if not isinstance(channels, list):
+            channels = [channels]
+
+        # TODO: pre-check
+        list_config = [{'type': channel.type, 'config': {channel.id: channel.value}} for channel in channels]
+        payload = {'name': name, 'notify_list': list_config}
+        url = self._get_url()
+
+        self.api_client.put(url, payload)
+
+    def _read_list(self, list_id=None, name=None):
+        if not any([bool(list_id), bool(name)]):
+            raise NS1NotificationListError('Either id or name must be defined')
+
+        if not list_id:
+            list_id = self._get_id_by_name(name)
+            if not list_id:
+                raise NS1NotificationListError('Notification list {} does not exist'.format(name))
+
+        url = self._get_url(list_id=list_id)
+
+        return self.api_client.get(url)
+
+    def _update_list(self, list_id=None, name=None, channels):
+        if not any([bool(list_id), bool(name)]):
+            raise NS1NotificationListError('Either id or name must be defined')
+
+        if not list_id:
+            list_id = self._get_id_by_name(name)
+            if not list_id:
+                raise NS1NotificationListError('Notification list {} does not exist'.format(name))
+
+        url = self._get_url(list_id=list_id)
+
+
+    def _delete_list(self):
+        pass
 
