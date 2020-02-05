@@ -6,6 +6,7 @@ Author: Sergey Evteev
 import os
 import json
 from urllib.request import urlopen, Request
+from urllib.error import HTTPError
 import logging
 
 # TODO: move following to arguments
@@ -58,7 +59,9 @@ class NS1APIClient:
         request = Request(url)
         request.add_header('X-NSONE-Key', self._api_key)
         request.method = method
-        request.data = data
+        if data:
+            data = json.dumps(data).encode()
+            request.data = data
 
         return request
 
@@ -98,7 +101,7 @@ class NS1APIClient:
         if not all([zone, name, record_type]):
             raise NS1APIClientError('Either "zone", "name" or "record_type" parameter is missed')
 
-        fqdn = '.'.join([zone, name])
+        fqdn = '.'.join([name, zone])
         url = '/'.join([endpoint, zone, fqdn, record_type])
 
         return url
@@ -190,8 +193,10 @@ class DNSRecord:
         if not ips:
             raise NS1RecordError('Parameter "ips" is missed')
 
+        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+
         try:
-            self._read_record(record_type, zone=zone, name=name)
+            self.api_client.get(url)
         except HTTPError as e:
             if e.code == 404:
                 # record not found, continue processing
@@ -200,8 +205,6 @@ class DNSRecord:
                 raise
         else:
             raise NS1RecordError('{type} record for {name} at {zone} already exists.'.format(type=type, name=name, zone=zone))
-
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
 
         if not isinstance(ips, list):
             ips = [ips]
@@ -226,17 +229,15 @@ class DNSRecord:
         :return: dict
         """
 
+        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+
         try:
-            self._read_record(record_type, zone=zone, name=name)
+            return self.api_client.get(url)
         except HTTPError as e:
             if e.code == 404:
                 return
 
             raise
-
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
-
-        return self.api_client.get(url)
 
     def _update_record(self, record_type, zone=None, name=None, payload=None):
         """
@@ -247,15 +248,16 @@ class DNSRecord:
         :return: dict
         """
 
+        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
+
         try:
-            self._read_record(record_type, zone=zone, name=name)
+            self.api_client.get(url)
         except HTTPError as e:
             if e.code == 404:
                 raise NS1RecordError('{type} record for {name} at {zone} does not exists.'.format(type=type, name=name, zone=zone))
             else:
                 raise
 
-        url = self.api_client._get_url(zone=zone, name=name, record_type=record_type)
         if not payload:
             raise NS1RecordError('Parameter "payload" is missed')
 
@@ -280,19 +282,27 @@ class DNSRecord:
             raise
 
     def add_a_record(self, zone, name, ips):
-
+        """
+        add A
+        """
         return self._create_record(A, zone=zone, name=name, ips=ips)
 
     def get_a_record(self, zone, name):
-
+        """
+        get A
+        """
         return self._read_record(A, zone=zone, name=name)
 
     def update_a_record(self, zone, name, payload):
-
+        """
+        upd A
+        """
         return self._update_record(A, zone=zone, name=name, payload=payload)
 
     def delete_a_record(self, zone, name):
-
+        """
+        del A
+        """
         return self._delete_record(A, zone=zone, name=name)
 
 
