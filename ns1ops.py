@@ -140,12 +140,13 @@ class NS1APIClient:
 
 
 class DNSRecord:
-    def __init__(self, api_client=NS1APIClient(api_key=NS1_API_KEY)):
+    def __init__(self, api_client=NS1APIClient(api_key=NS1_API_KEY), zone=None, name=None, record_type=None):
         self.api_client = api_client
         self.supported_record_types = ['A']
-        self.last_used_zone = None
-        self.last_used_name = None
         self.endpoint = 'https://api.nsone.net/v1/zones'
+        self._zone = zone
+        self._name = name
+        self._record_type = record_type
 
     @staticmethod
     def _secure_ip(address):
@@ -279,39 +280,41 @@ class DNSRecord:
 
             raise
 
+    def __repr__(self):
+        return
+
 
 class ARecord(DNSRecord):
-    def add(self, zone=None, name=None, ips=None):
+    def __init__(self, zone=None, name=None):
+        super().__init__(zone=zone, name=name, record_type='A')
+
+    def add(self, ips=None):
         """
         add A
         """
 
-        result = self._create(A, zone=zone, name=name, ips=ips)
-        self.last_used_zone = zone
-        self.last_used_name = name
+        return self._create(A, zone=self._zone, name=self._name, ips=ips)
 
-        return result
-
-    def get(self, zone=None, name=None):
+    def get(self):
         """
         get A
         """
 
-        self.last_used_zone = zone or self.last_used_zone
-        self.last_used_name = name or self.last_used_name
-        return self._read(A, zone=self.last_used_zone, name=self.last_used_name)
+        return self._read(A, zone=self._zone, name=self._name)
 
-    def update(self, zone=None, name=None, payload=None):
+    def update(self, payload=None):
         """
         upd A
         """
-        return self._update(A, zone=zone, name=name, payload=payload)
 
-    def delete(self, zone=None, name=None):
+        return self._update(A, zone=self._zone, name=self._name, payload=payload)
+
+    def delete(self):
         """
         del A
         """
-        return self._delete(A, zone=zone, name=name)
+
+        return self._delete(A, zone=self._zone, name=self._name)
 
 
 class Monitor:
@@ -326,7 +329,6 @@ class Monitor:
         :return: str
         :raises: NS1APIClientError
         """
-
 
         url = self.endpoint
         if job_id:
