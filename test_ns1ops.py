@@ -1,6 +1,5 @@
 import ns1ops
 
-import pytest
 from mock import Mock, patch
 
 
@@ -29,21 +28,11 @@ def test_NS1APIClient_get_response(mock_urlopen):
     assert client._get_response(None) == expected
 
 
-def test_NS1APIClient_get_url():
-    client = ns1ops.NS1APIClient(api_key=None)
+def test_NS1Monitor_get_url():
+    client = ns1ops.Monitor()
 
-    # test a call with incorrect 'record_type'
-    with pytest.raises(ns1ops.NS1APIClientError, match='Unsupported record type: MX'):
-        client._get_url(zone='example.com', name='mail', record_type='MX')
+    expected = 'https://api.nsone.net/v1/monitoring/jobs'
+    assert client._get_url() == expected
 
-    # test a call with 'name' parameter missed
-    with pytest.raises(ns1ops.NS1APIClientError, match='Either "zone", "name" or "record_type" parameter is missed'):
-        client._get_url(zone='example.com', record_type='A')
-
-    # test a call with 'zone' parameter missed
-    with pytest.raises(ns1ops.NS1APIClientError, match='Either "zone", "name" or "record_type" parameter is missed'):
-        client._get_url(name='www', record_type='A')
-
-    # test a normal call
-    expected = 'https://api.nsone.net/v1/zones/example.com/www.example.com/A'
-    assert client._get_url(zone='example.com', name='www', record_type='A') == expected
+    expected = 'https://api.nsone.net/v1/monitoring/jobs/asdfgh123456'
+    assert client._get_url(job_id='asdfgh123456') == expected
