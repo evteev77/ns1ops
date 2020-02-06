@@ -287,10 +287,10 @@ class DNSRecord:
         if len(monitor_id) > 1:
             raise NS1MonitorError('More that one monitor found for {}'.format(self._fqdn))
 
-        monitor_id = monitor_id[0]
-
-        candidate_monitor = Monitor(api_client=self._api_client, monitor_id=monitor_id)
-        candidate_monitor.delete()
+        if monitor_id:
+            monitor_id = monitor_id[0]
+            candidate_monitor = Monitor(api_client=self._api_client, monitor_id=monitor_id)
+            candidate_monitor.delete()
 
         try:
             self._api_client.delete(self._url)
