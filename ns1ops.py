@@ -280,6 +280,18 @@ class DNSRecord:
         :raises: HTTPError
         """
 
+        abstract_monitor = Monitor(api_client=self._api_client)
+        available_monitors = abstract_monitor.read()
+
+        monitor_id = [monitor['id'] for monitor in available_monitors if monitor['config']['host'] == self._fqdn]
+        if len(monitor_id) > 1:
+            raise NS1MonitorError('More that one monitor found for {}'.format(self._fqdn))
+
+        monitor_id = monitor_id[0]
+
+        candidate_monitor = Monitor(api_client=self._api_client, monitor_id=monitor_id)
+        candidate_monitor.delete()
+
         try:
             self._api_client.delete(self._url)
         except HTTPError as e:
@@ -296,9 +308,11 @@ class ARecord(DNSRecord):
     def __init__(self, api_client=None, zone=None, name=None):
         super().__init__(api_client=api_client, zone=zone, name=name, record_type='A')
 
+
 class MXRecord(DNSRecord):
     def __init__(self, *args, **kwargs):
         raise NS1RecordError('MX record is not implemented yet')
+
 
 class NSRecord(DNSRecord):
     def __init__(self, *args, **kwargs):
@@ -391,6 +405,7 @@ class PingMonitor(Monitor):
     def __init__(self, api_client=None, host=None, monitor_id=None):
         super().__init__(api_client=api_client, monitor_type='ping', host=host, monitor_id=monitor_id)
 
+
 class TCPMonitor(Monitor):
     def __init__(self, *args, **kwargs):
         raise NS1MonitorError('TCP monitor is not implemented yet')
@@ -406,10 +421,15 @@ def get_arguments():
     parser.add_argument('--ips', type=str, help='List of IP addresses, comma-separated')
     parser.add_argument('--monitor', help='Add default monitor when creating record', action='store_true')
     parser.add_argument('--monitor-id', type=str, help='ID of existing monitor')
-    parser.add_argument('--config', type=dict, help='Configuration to update')
+    parser.add_argument('--config', type=str, help='Configuration to update')
     parser.add_argument('--api-key', type=str, help='NS1 API key')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.config:
+        args.config = json.loads(args.config)
+
+    return args
 
 
 def get_api_client(args):
@@ -466,6 +486,9 @@ def main():
     elif args.resource == 'monitor':
         res_args['host'] = args.name
         res_args['monitor_id'] = args.monitor_id
+    else:
+        print('Resource is not specified, exiting.')
+        exit(1)
 
     if args.operation == 'update':
         ops_args['payload'] = args.config
