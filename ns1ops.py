@@ -1,5 +1,5 @@
 """
-under construction
+NS1 ops script
 Author: Sergey Evteev
 """
 
